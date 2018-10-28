@@ -46,7 +46,7 @@
   ArmMmuLib|ArmPkg/Library/ArmMmuLib/ArmMmuBaseLib.inf
   ArmPlatformLib|Platform/Rockchip/Rk3399Pkg/Library/Rk3399Lib/Rk3399Lib.inf
   ArmPlatformStackLib|ArmPlatformPkg/Library/ArmPlatformStackLib/ArmPlatformStackLib.inf
-  ArmPlatformSysConfigLib|ArmPlatformPkg/Library/ArmPlatformSysConfigLibNull/ArmPlatformSysConfigLibNull.inf
+  ArmPlatformSysConfigLib|Platform/Rockchip/Rk3399Pkg/Library/ArmPlatformSysConfigLibNull/ArmPlatformSysConfigLibNull.inf
 
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
@@ -183,26 +183,10 @@
 ################################################################################
 
 [PcdsFeatureFlag.common]
-  #
-  # Control what commands are supported from the UI
-  # Turn these on and off to add features or save size
-  #
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedMacBoot|TRUE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedDirCmd|TRUE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedHobCmd|TRUE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedHwDebugCmd|TRUE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedPciDebugCmd|TRUE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedIoEnable|FALSE
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedScriptCmd|FALSE
-
-  gEmbeddedTokenSpaceGuid.PcdCacheEnable|TRUE
-
   # Use the Vector Table location in CpuDxe. We will not copy the Vector Table at PcdCpuVectorBaseAddress
   gArmTokenSpaceGuid.PcdRelocateVectorTable|FALSE
 
   gEmbeddedTokenSpaceGuid.PcdPrePiProduceMemoryTypeInformationHob|TRUE
-
-  gArmPlatformTokenSpaceGuid.PcdSystemMemoryInitializeInSec|TRUE
 
   ## If TRUE, Graphics Output Protocol will be installed on virtual handle created by ConsplitterDxe.
   #  It could be set FALSE to save size.
@@ -275,10 +259,6 @@
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderData|0
 
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
-
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedAutomaticBootCommand|""
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedDefaultTextColor|0x07
-  gEmbeddedTokenSpaceGuid.PcdEmbeddedMemVariableStoreSize|0x10000
 
   #
   # NV Storage PCDs.
@@ -427,7 +407,7 @@
   #
   EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf {
     <LibraryClasses>
-      BdsLib|ArmPkg/Library/BdsLib/BdsLib.inf
+      BdsLib|Platform/ARM/Library/BdsLib/BdsLib.inf
   }
 
 
@@ -452,6 +432,7 @@
   #
   # FAT filesystem + GPT/MBR partitioning
   #
+  FatPkg/EnhancedFatDxe/Fat.inf
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
@@ -471,6 +452,10 @@
       NULL|MdeModulePkg/Library/BootMaintenanceManagerUiLib/BootMaintenanceManagerUiLib.inf
       PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
   }
+  
+  #
+  # UEFI application (Shell Embedded Boot Loader)
+  #
   ShellPkg/Application/Shell/Shell.inf {
     <LibraryClasses>
       ShellCommandLib|ShellPkg/Library/UefiShellCommandLib/UefiShellCommandLib.inf
@@ -481,10 +466,13 @@
       NULL|ShellPkg/Library/UefiShellDebug1CommandsLib/UefiShellDebug1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellInstall1CommandsLib/UefiShellInstall1CommandsLib.inf
       NULL|ShellPkg/Library/UefiShellNetwork1CommandsLib/UefiShellNetwork1CommandsLib.inf
-      NULL|ShellPkg/Library/UefiShellTftpCommandLib/UefiShellTftpCommandLib.inf
       HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
       PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
       BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
+
+      FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
+      ShellLib|ShellPkg/Library/UefiShellLib/UefiShellLib.inf
+
     <PcdsFixedAtBuild>
       gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0xFF
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE

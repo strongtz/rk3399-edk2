@@ -17,7 +17,7 @@ cd $WORKSPACE
 git clone https://github.com/tianocore/edk2.git
 git clone https://github.com/tianocore/edk2-non-osi.git
 git clone https://github.com/tianocore/edk2-platforms.git
-git clone https://github.com/pbatard/Rockchip.git edk2-platforms/Platform/Rockchip
+git clone https://github.com/andreiw/rk3399-edk2.git edk2-platforms/Platform/Rockchip
 export GCC5_AARCH64_PREFIX=aarch64-linux-gnu-
 export PACKAGES_PATH=$WORKSPACE/edk2:$WORKSPACE/edk2-platforms:$WORKSPACE/edk2-non-osi
 . edk2/edksetup.sh

@@ -92,10 +92,7 @@
   
   NetLib|MdeModulePkg/Library/DxeNetLib/DxeNetLib.inf
 
-  #
-  # Assume everything is fixed at build
-  #
-  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
 
   PeCoffLib|MdePkg/Library/BasePeCoffLib/BasePeCoffLib.inf
   PeCoffExtraActionLib|ArmPkg/Library/DebugPeCoffExtraActionLib/DebugPeCoffExtraActionLib.inf
@@ -134,6 +131,7 @@
   I2CLib|Platform/Rockchip/Rk3399Pkg/Library/I2CLib/I2CLib.inf
 
 [LibraryClasses.common.SEC]
+  PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
   ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
   LzmaDecompressLib|IntelFrameworkModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
@@ -342,6 +340,10 @@
       PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
       NULL|MdeModulePkg/Library/DxeCrc32GuidedSectionExtractLib/DxeCrc32GuidedSectionExtractLib.inf
   }
+  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf {
+    <LibraryClasses>
+      PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+  }
 
   #
   # Architectural Protocols
@@ -368,8 +370,6 @@
   ArmPkg/Drivers/TimerDxe/TimerDxe.inf
 
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
-
-  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 
   #
   # OemBoardMiscDxe

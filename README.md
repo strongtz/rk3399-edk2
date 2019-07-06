@@ -1,5 +1,7 @@
 # Rockchip RK3399 UEFI Firmware
 
+Now with ACPI...
+
 ## Notes
 
 This is a version of the Rockchip 3399 UEFI firmware from https://github.com/jeffchenfz/Rockchip
@@ -28,8 +30,15 @@ edk2-platforms/Platform/Rockchip/Rk3399Pkg/Tools/loaderimage --pack --uboot Buil
 
 ## Flashing the UEFI firmware
 
-After the .img has been created, use [Rockchip AndroidTool](https://github.com/rockchip-linux/tools/tree/rk3399/windows)
-to flash the firmware by using `RK3399_SDK_UEFI.img` for the `uboot.img`.
+  How to put this together? You need a GPT disk. SD card will be fine, or
+  you can use rkdeveloptool to modify the eMMC.
 
-You can find the rest of the files required for flashing (`loader.bin`, `parameter.txt` and `trust.img`)
-under `Rk3399Pkg/Tools/Bin/`
+  The start/end sectors are important!
+
+    Number  Start (sector)    End (sector)  Size       Code  Name
+       1              64            8063   3.9 MiB     FFFF  loader1   <-- Rk3399Pkg/Tools/Bin/idbloader.bin
+       2            8064            8191   64.0 KiB    FFFF  reserved1
+       3            8192           16383   4.0 MiB     FFFF  reserved2
+       4           16384           24575   4.0 MiB     FFFF  loader2   <-- RK3399_SDK_UEFI.img
+       5           24576           32767   4.0 MiB     FFFF  atf       <-- Rk3399Pkg/Tools/Bin/trust.img
+       6           32768          262143   112.0 MiB   EF00  efi esp

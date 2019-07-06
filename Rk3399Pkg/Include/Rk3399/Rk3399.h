@@ -22,8 +22,8 @@
 ************************************************************************************/
 
 // SOC peripherals (UART, I2C, I2S, USB, etc)
-#define RK3399_PERIPH_BASE                      0xF4000000
-#define RK3399_PERIPH_SZ                        0x0bf00000
+#define RK3399_PERIPH_BASE                      0xF8000000
+#define RK3399_PERIPH_SZ                        0x08000000
 
 #define RK3399_PMU_GRF_BASE               0xFF320000
 #define RK3399_PMU_CRU_BASE               0xFF750000

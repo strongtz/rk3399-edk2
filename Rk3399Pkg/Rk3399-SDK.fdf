@@ -1,6 +1,7 @@
 #
 #  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 #  Copyright (c) 2017, Rockchip Inc. All rights reserved.
+#  Copyright (c) 2019, Andrey Warkentin <andrey.warkentin@gmail.com>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -196,6 +197,13 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
   INF MdeModulePkg/Application/UiApp/UiApp.inf
+
+  #
+  # ACPI support.
+  #
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  INF RuleOverride = ACPITABLE Platform/Rockchip/Rk3399Pkg/AcpiTables/AcpiTables.inf
 
 [FV.FVMAIN_COMPACT]
 FvAlignment        = 8

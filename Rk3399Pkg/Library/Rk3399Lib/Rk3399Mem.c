@@ -32,7 +32,6 @@
 #define DDR_ATTRIBUTES_UNCACHED         ARM_MEMORY_REGION_ATTRIBUTE_UNCACHED_UNBUFFERED
 
 #define EXTRA_SYSTEM_MEMORY_BASE  0x40000000
-#define EXTRA_SYSTEM_MEMORY_SIZE  0x40000000
 
 STATIC struct Rk3399ReservedMemory {
   EFI_PHYSICAL_ADDRESS         Offset;
@@ -50,7 +49,7 @@ Rk3399InitMemorySize (
 {
   UINT32 Rank, Col, Bank, Cs0Row, Cs1Row, Bw, Row34;
   UINT32 ChipSizeMb = 0;
-  UINT32 SizeMb = 0;
+  UINT64 SizeMb = 0;
   UINT32 Ch;
   UINT64 ret;
 
@@ -79,15 +78,20 @@ Rk3399InitMemorySize (
     if (Row34)
       ChipSizeMb = ChipSizeMb * 3 / 4;
     SizeMb += ChipSizeMb;
+
     DEBUG((DEBUG_INFO, "Rank %d Col %d Bank %d Cs0Row %d Bw %d Row34 %d\n",
           Rank, Col, Bank, Cs0Row, Bw, Row34));
   }
 
-  /* support maximum DDR capacity is 2GB size */
-  if (SizeMb > 2048)
-    SizeMb = 2048;
-
+  /*
+   * Support maximum DDR capacity is 4GB size, less the MMIO hole
+   * at 0xf8000000, where the SoC registers are.
+   */
   ret = SizeMb << 20;
+
+  if (ret >= RK3399_PERIPH_BASE) {
+    ret = RK3399_PERIPH_BASE;
+  }
 
   DEBUG((DEBUG_INFO, "memory size=%dMB 0x%x\n", SizeMb, ret));
 
@@ -176,7 +180,7 @@ ArmPlatformGetVirtualMemoryMap (
   }
 
   AdditionalMemorySize = MemorySize - PcdGet64 (PcdSystemMemorySize);
-  if (AdditionalMemorySize >= SIZE_1GB) {
+  if (AdditionalMemorySize > 0) {
     // Declared the additional memory
     ResourceAttributes =
       EFI_RESOURCE_ATTRIBUTE_PRESENT |
@@ -190,7 +194,7 @@ ArmPlatformGetVirtualMemoryMap (
       EFI_RESOURCE_SYSTEM_MEMORY,
       ResourceAttributes,
       EXTRA_SYSTEM_MEMORY_BASE,
-      EXTRA_SYSTEM_MEMORY_SIZE);
+      AdditionalMemorySize);
   }
 
   ASSERT (VirtualMemoryMap != NULL);
@@ -216,11 +220,11 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[Index].Length          = PcdGet64 (PcdSystemMemorySize);
   VirtualMemoryTable[Index].Attributes      = CacheAttributes;
 
-  // If DDR capacity is 2GB size, append a new entry to fill the gap.
-  if (AdditionalMemorySize >= SIZE_1GB) {
+  // If DDR capacity is over 1GB.
+  if (AdditionalMemorySize > 0) {
     VirtualMemoryTable[++Index].PhysicalBase = EXTRA_SYSTEM_MEMORY_BASE;
     VirtualMemoryTable[Index].VirtualBase    = EXTRA_SYSTEM_MEMORY_BASE;
-    VirtualMemoryTable[Index].Length         = EXTRA_SYSTEM_MEMORY_SIZE;
+    VirtualMemoryTable[Index].Length         = AdditionalMemorySize;
     VirtualMemoryTable[Index].Attributes     = CacheAttributes;
   }
 

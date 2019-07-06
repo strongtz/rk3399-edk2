@@ -1,6 +1,7 @@
 #
 #  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 #  Copyright (c) 2017, Rockchip Inc. All rights reserved.
+#  Copyright (c) 2019, Andrey Warkentin <andrey.warkentin@gmail.com>
 #
 #  This program and the accompanying materials
 #  are licensed and made available under the terms and conditions of the BSD License
@@ -192,6 +193,8 @@
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdTurnOffUsbLegacySupport|TRUE
 
+  gEfiMdeModulePkgTokenSpaceGuid.PcdInstallAcpiSdtProtocol|TRUE
+
 [PcdsFixedAtBuild.common]
   gEfiMdePkgTokenSpaceGuid.PcdMaximumUnicodeStringLength|1000000
   gEfiMdePkgTokenSpaceGuid.PcdMaximumAsciiStringLength|1000000
@@ -268,9 +271,12 @@
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase|0x30020000
   gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize|0x00010000
 
-  # System Memory (1GB)
+  #
+  # Minimum system memory supported (1GB). Actual amount is detected
+  # in Rk3399Mem.c (Rk3399InitMemorySize).
+  #
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x00000000
-  gArmTokenSpaceGuid.PcdSystemMemorySize|0x3E000000
+  gArmTokenSpaceGuid.PcdSystemMemorySize|0x40000000
 
   # Dual-Cluster profile
   gArmPlatformTokenSpaceGuid.PcdCoreCount|1
@@ -285,7 +291,7 @@
   ## Serial Terminal
   DEFINE SERIAL_BASE = 0xFF1A0000 # UART2
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|$(SERIAL_BASE)
-  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|1500000
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate|115200
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultDataBits|8
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity|0
   gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits|1
@@ -436,6 +442,13 @@
   MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
   MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
   MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
+
+  #
+  # ACPI support.
+  #
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  Platform/Rockchip/Rk3399Pkg/AcpiTables/AcpiTables.inf
 
   #
   # Bds

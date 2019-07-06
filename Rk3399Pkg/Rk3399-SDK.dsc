@@ -128,7 +128,8 @@
 
   TimeBaseLib|EmbeddedPkg/Library/TimeBaseLib/TimeBaseLib.inf
 
-  # Add I2CLib
+  # Rk3399 libs
+  CRULib|Platform/Rockchip/Rk3399Pkg/Library/CRULib/CRULib.inf
   I2CLib|Platform/Rockchip/Rk3399Pkg/Library/I2CLib/I2CLib.inf
 
 [LibraryClasses.common.SEC]

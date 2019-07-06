@@ -2,6 +2,7 @@
 *
 *  Copyright (c) 2014-2017, Linaro Limited. All rights reserved.
 *  Copyright (c) 2017, Rockchip Inc. All rights reserved.
+*  Copyright (c) 2019, Andrey Warkentin <andrey.warkentin@gmail.com>
 *
 *  This program and the accompanying materials
 *  are licensed and made available under the terms and conditions of the BSD License
@@ -42,15 +43,8 @@
 
 #define RK3399_PWM_BASE                  0xFF420000
 
-
-#define CruReadl(offset)		MmioRead32(RK3399_CRU_BASE + offset)
-#define CruWritel(v, offset)		do { MmioWrite32(RK3399_CRU_BASE + offset, v); } while (0)
-
 #define GrfReadl(offset)		MmioRead32(RK3399_GRF_BASE + offset)
 #define GrfWritel(v, offset)		do { MmioWrite32(RK3399_GRF_BASE + offset, v); } while (0)
-
-#define PmuCruReadl(offset)		MmioRead32(RK3399_PMU_CRU_BASE + offset)
-#define PmuCruWritel(v, offset)		do { MmioWrite32(RK3399_PMU_CRU_BASE + offset, v); } while (0)
 
 #define PmuGrfReadl(offset)		MmioRead32(RK3399_PMU_GRF_BASE + offset)
 #define PmuGrfWritel(v, offset)		do { MmioWrite32(RK3399_PMU_GRF_BASE + offset, v); } while (0)

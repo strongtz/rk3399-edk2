@@ -22,20 +22,6 @@
 #define CruReadl(offset)		MmioRead32(RK3399_CRU_BASE + offset)
 #define CruWritel(v, offset)		do { MmioWrite32(RK3399_CRU_BASE + offset, v); } while (0)
 
-enum RkPllsId {
-	APLLL_ID = 0,
-	APLLB_ID,
-	DPLL_ID,
-	CPLL_ID,
-	GPLL_ID,
-	NPLL_ID,
-	VPLL_ID,
-
-	PPLL_ID,
-
-	END_PLL_ID
-};
-
 /*****pmucru reg offset*****/
 
 #define PMUCRU_PLL_CON(id, i)	((id) * 0x20 + ((i) * 4))

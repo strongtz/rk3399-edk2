@@ -26,6 +26,7 @@
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiLib.h>
 #include <Library/CRULib.h>
+#include <Rk3399/Rk3399Cru.h>
 
 #include <Protocol/MmcHost.h>
 
@@ -754,7 +755,7 @@ DwEmmcIomux (
   MicroSecondDelay(5);
   CruWritel((0x1 << ( 10 + 16)) | (0 << 10), CRU_SOFTRSTS_CON(7));
 
-  PllRate = RkClkPllGetRate(GPLL_ID);
+  PllRate = rk3399_pll_get_rate(GPLL_ID);
   DEBUG ((DW_DBG, "%a(): GPLL PllRate=%d\n", __func__, PllRate));
 
   if (PllRate == 400000000) {

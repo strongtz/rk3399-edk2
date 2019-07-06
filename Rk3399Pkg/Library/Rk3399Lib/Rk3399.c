@@ -17,6 +17,7 @@
 #include <Library/DebugLib.h>
 #include <Library/IoLib.h>
 #include <Library/PcdLib.h>
+#include <Library/CRULib.h>
 
 #include <Ppi/ArmMpCoreInfo.h>
 
@@ -60,6 +61,15 @@ ArmPlatformInitialize (
   IN  UINTN                     MpId
   )
 {
+  /*
+   * Little cluster at 1.3GHz (unstable at 1.4).
+   * Big cluster at 1.7GHz (unstable at 1.8).
+   *
+   * If/when can use the regulators (board-specific),
+   * may be able to push this further.
+   */
+  rk3399_configure_cpu(APLL_1300_MHZ, CPU_CLUSTER_LITTLE);
+  rk3399_configure_cpu(APLL_1700_MHZ, CPU_CLUSTER_BIG);
   return RETURN_SUCCESS;
 }
 

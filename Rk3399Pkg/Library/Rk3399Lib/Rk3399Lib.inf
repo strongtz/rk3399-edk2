@@ -33,6 +33,7 @@
   IoLib
   MemoryAllocationLib
   SerialPortLib
+  CRULib
 
 [Sources.common]
   Rk3399.c

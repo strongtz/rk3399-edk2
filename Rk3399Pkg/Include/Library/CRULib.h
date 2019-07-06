@@ -1,29 +1,49 @@
 /** @file
-*
-*  Copyright (c) 2017, Rockchip Inc. All rights reserved.
-*  Copyright (c) 2019, Andrey Warkentin <andrey.warkentin@gmail.com>
-*
-*  This program and the accompanying materials
-*  are licensed and made available under the terms and conditions of the BSD License
-*  which accompanies this distribution.  The full text of the license may be found at
-*  http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
-*
-**/
+ *
+ * (C) Copyright 2015 Google, Inc
+ * (C) 2017 Theobroma Systems Design und Consulting GmbH
+ * (c) Copyright 2019, Andrei Warkentin <andrey.warkentin@gmail.com>
+ *
+ * SPDX-License-Identifier:     GPL-2.0
+ */
 
 #ifndef _CRU_LIB_H_
 #define _CRU_LIB_H_
 
-#include <Rk3399/Rk3399.h>
-#include <Rk3399/Rk3399Cru.h>
+typedef enum rk3399_pll_id {
+  APLLL_ID = 0,
+  APLLB_ID,
+  DPLL_ID,
+  CPLL_ID,
+  GPLL_ID,
+  NPLL_ID,
+  VPLL_ID,
+  PPLL_ID,
+  END_PLL_ID
+} rk3399_pll_id;
 
-#define FRAC_MODE       0
-#define MHZ             (1000 * 1000)
+typedef enum apll_frequencies {
+  APLL_1600_MHZ,
+  APLL_816_MHZ,
+  APLL_600_MHZ,
+  APLL_1700_MHZ,
+  APLL_1300_MHZ,
+} apll_frequencies;
 
-UINT32 RkClkPllGetRate (
-  IN  enum RkPllsId pll_id
+typedef enum cpu_cluster {
+  CPU_CLUSTER_LITTLE,
+  CPU_CLUSTER_BIG,
+} cpu_cluster;
+
+UINT32
+rk3399_pll_get_rate(
+  IN  rk3399_pll_id pll_id
+  );
+
+void
+rk3399_configure_cpu(
+  IN  apll_frequencies freq,
+  IN  cpu_cluster cluster
   );
 
 #endif /* _CRU_LIB_H_ */

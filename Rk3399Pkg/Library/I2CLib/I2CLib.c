@@ -23,6 +23,7 @@
 
 #include <Library/I2CLib.h>
 #include <Library/CRULib.h>
+#include <Rk3399/Rk3399Cru.h>
 #include <Rk3399/Rk3399.h>
 #include <Rk3399/Rk3399Grf.h>
 #include <Rk3399/Rk3399PmuGrf.h>
@@ -125,7 +126,7 @@ RkClkGetI2CClk (
   UINT32 Div = 1;
   UINT32 PmuPll;
 
-  PmuPll = RkClkPllGetRate(PPLL_ID);
+  PmuPll = rk3399_pll_get_rate(PPLL_ID);
   if (BusId == 0) {
     Con = PmuCruReadl(PMUCRU_CLKSELS_CON(2));
     Div = ((Con >> 0) & 0x7F) + 1;

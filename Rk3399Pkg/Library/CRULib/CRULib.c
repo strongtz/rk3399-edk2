@@ -1,17 +1,11 @@
 /** @file
-*
-*  Copyright (c) 2017, Rockchip Inc. All rights reserved.
-*  Copyright (c) 2019, Andrey Warkentin <andrey.warkentin@gmail.com>
-*
-*  This program and the accompanying materials
-*  are licensed and made available under the terms and conditions of the BSD License
-*  which accompanies this distribution.  The full text of the license may be found at
-*  http://opensource.org/licenses/bsd-license.php
-*
-*  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
-*
-**/
+ *
+ * (C) Copyright 2015 Google, Inc
+ * (C) 2017 Theobroma Systems Design und Consulting GmbH
+ * (c) Copyright 2019, Andrei Warkentin <andrey.warkentin@gmail.com>
+ *
+ * SPDX-License-Identifier:     GPL-2.0
+ */
 
 #include <PiDxe.h>
 #include <Library/DebugLib.h>
@@ -20,47 +14,554 @@
 #include <Library/TimerLib.h>
 #include <Library/IoLib.h>
 #include <Library/CRULib.h>
+#include <Rk3399/Rk3399.h>
 
+/* core clocks */
+#define PLL_APLLL       1
+#define PLL_APLLB       2
+#define PLL_DPLL        3
+#define PLL_CPLL        4
+#define PLL_GPLL        5
+#define PLL_NPLL        6
+#define PLL_VPLL        7
+#define ARMCLKL         8
+#define ARMCLKB         9
 
-UINT32
-RkClkPllGetRate (
-  enum RkPllsId pll_id
+#define MHz             1000000
+#define KHz             1000
+#define OSC_HZ          (24*MHz)
+#define APLL_HZ         (600*MHz)
+#define GPLL_HZ         (800 * MHz)
+#define CPLL_HZ         (384*MHz)
+#define NPLL_HZ         (600 * MHz)
+#define PPLL_HZ         (676*MHz)
+
+#define PMU_PCLK_HZ     (48*MHz)
+
+#define ACLKM_CORE_HZ   (300*MHz)
+#define ATCLK_CORE_HZ   (300*MHz)
+#define PCLK_DBG_HZ     (100*MHz)
+
+#define PERIHP_ACLK_HZ  (150 * MHz)
+#define PERIHP_HCLK_HZ  (75 * MHz)
+#define PERIHP_PCLK_HZ  (37500 * KHz)
+
+#define PERILP0_ACLK_HZ (300 * MHz)
+#define PERILP0_HCLK_HZ (100 * MHz)
+#define PERILP0_PCLK_HZ (50 * MHz)
+
+#define PERILP1_HCLK_HZ (100 * MHz)
+#define PERILP1_PCLK_HZ (50 * MHz)
+
+#define PWM_CLOCK_HZ    PMU_PCLK_HZ
+
+struct rk3399_pmucru {
+        UINT32 ppll_con[6];
+        UINT32 reserved[0x1a];
+        UINT32 pmucru_clksel[6];
+        UINT32 pmucru_clkfrac_con[2];
+        UINT32 reserved2[0x18];
+        UINT32 pmucru_clkgate_con[3];
+        UINT32 reserved3;
+        UINT32 pmucru_softrst_con[2];
+        UINT32 reserved4[2];
+        UINT32 pmucru_rstnhold_con[2];
+        UINT32 reserved5[2];
+        UINT32 pmucru_gatedis_con[2];
+} *pmucru = (void *) RK3399_PMU_CRU_BASE;
+
+struct rk3399_cru {
+        UINT32 apll_l_con[6];
+        UINT32 reserved[2];
+        UINT32 apll_b_con[6];
+        UINT32 reserved1[2];
+        UINT32 dpll_con[6];
+        UINT32 reserved2[2];
+        UINT32 cpll_con[6];
+        UINT32 reserved3[2];
+        UINT32 gpll_con[6];
+        UINT32 reserved4[2];
+        UINT32 npll_con[6];
+        UINT32 reserved5[2];
+        UINT32 vpll_con[6];
+        UINT32 reserved6[0x0a];
+        UINT32 clksel_con[108];
+        UINT32 reserved7[0x14];
+        UINT32 clkgate_con[35];
+        UINT32 reserved8[0x1d];
+        UINT32 softrst_con[21];
+        UINT32 reserved9[0x2b];
+        UINT32 glb_srst_fst_value;
+        UINT32 glb_srst_snd_value;
+        UINT32 glb_cnt_th;
+        UINT32 misc_con;
+        UINT32 glb_rst_con;
+        UINT32 glb_rst_st;
+        UINT32 reserved10[0x1a];
+        UINT32 sdmmc_con[2];
+        UINT32 sdio0_con[2];
+        UINT32 sdio1_con[2];
+} *cru = (VOID *) RK3399_CRU_BASE;
+
+struct rk3399_clk_info {
+  unsigned long id;
+  CHAR8 *name;
+  BOOLEAN is_cru;
+};
+
+#define GENMASK(h, l) \
+  (((~0UL) << (l)) & (~0UL >> ((sizeof(UINTN) * 8) - 1 - (h))))
+
+struct pll_div {
+  UINT32 refdiv;
+  UINT32 fbdiv;
+  UINT32 postdiv1;
+  UINT32 postdiv2;
+  UINT32 frac;
+  UINT32 freq;
+};
+
+#define RATE_TO_DIV(input_rate, output_rate)    \
+  ((input_rate) / (output_rate) - 1);
+#define DIV_TO_RATE(input_rate, div)    ((input_rate) / ((div) + 1))
+
+#define PLL_DIVISORS(hz, _refdiv, _postdiv1, _postdiv2) {               \
+    .refdiv = _refdiv,                                                  \
+      .fbdiv = (UINT32)((UINT64)hz * _refdiv * _postdiv1 * _postdiv2 / OSC_HZ), \
+      .postdiv1 = _postdiv1, .postdiv2 = _postdiv2, .freq = hz};
+
+static const struct pll_div gpll_init_cfg = PLL_DIVISORS(GPLL_HZ, 1, 3, 1);
+static const struct pll_div npll_init_cfg = PLL_DIVISORS(NPLL_HZ, 1, 3, 1);
+static const struct pll_div apll_1700_cfg = PLL_DIVISORS(1700*MHz, 1, 1, 1);
+static const struct pll_div apll_1600_cfg = PLL_DIVISORS(1600*MHz, 3, 1, 1);
+static const struct pll_div apll_1300_cfg = PLL_DIVISORS(1300*MHz, 1, 1, 1);
+static const struct pll_div apll_816_cfg = PLL_DIVISORS(816 * MHz, 1, 2, 1);
+static const struct pll_div apll_600_cfg = PLL_DIVISORS(600*MHz, 1, 2, 1);
+
+static const struct pll_div *apll_cfgs[] = {
+  [APLL_1700_MHZ] = &apll_1700_cfg,
+  [APLL_1600_MHZ] = &apll_1600_cfg,
+  [APLL_1300_MHZ] = &apll_1300_cfg,
+  [APLL_816_MHZ] = &apll_816_cfg,
+  [APLL_600_MHZ] = &apll_600_cfg,
+};
+
+enum {
+  /* PLL_CON0 */
+  PLL_FBDIV_MASK                 = 0xfff,
+  PLL_FBDIV_SHIFT                = 0,
+
+  /* PLL_CON1 */
+  PLL_POSTDIV2_SHIFT             = 12,
+  PLL_POSTDIV2_MASK              = 0x7 << PLL_POSTDIV2_SHIFT,
+  PLL_POSTDIV1_SHIFT             = 8,
+  PLL_POSTDIV1_MASK              = 0x7 << PLL_POSTDIV1_SHIFT,
+  PLL_REFDIV_MASK                = 0x3f,
+  PLL_REFDIV_SHIFT               = 0,
+
+  /* PLL_CON2 */
+  PLL_LOCK_STATUS_SHIFT          = 31,
+  PLL_LOCK_STATUS_MASK           = 1 << PLL_LOCK_STATUS_SHIFT,
+  PLL_FRACDIV_MASK               = 0xffffff,
+  PLL_FRACDIV_SHIFT              = 0,
+
+  /* PLL_CON3 */
+  PLL_MODE_SHIFT                 = 8,
+  PLL_MODE_MASK                  = 3 << PLL_MODE_SHIFT,
+  PLL_MODE_SLOW                  = 0,
+  PLL_MODE_NORM,
+  PLL_MODE_DEEP,
+  PLL_DSMPD_SHIFT                = 3,
+  PLL_DSMPD_MASK                 = 1 << PLL_DSMPD_SHIFT,
+  PLL_INTEGER_MODE               = 1,
+
+  /* PMUCRU_CLKSEL_CON0 */
+  PMU_PCLK_DIV_CON_MASK          = 0x1f,
+  PMU_PCLK_DIV_CON_SHIFT         = 0,
+
+  /* PMUCRU_CLKSEL_CON1 */
+  SPI3_PLL_SEL_SHIFT             = 7,
+  SPI3_PLL_SEL_MASK              = 1 << SPI3_PLL_SEL_SHIFT,
+  SPI3_PLL_SEL_24M               = 0,
+  SPI3_PLL_SEL_PPLL              = 1,
+  SPI3_DIV_CON_SHIFT             = 0x0,
+  SPI3_DIV_CON_MASK              = 0x7f,
+
+  /* PMUCRU_CLKSEL_CON2 */
+  I2C_DIV_CON_MASK               = 0x7f,
+  CLK_I2C8_DIV_CON_SHIFT         = 8,
+  CLK_I2C0_DIV_CON_SHIFT         = 0,
+
+  /* PMUCRU_CLKSEL_CON3 */
+  CLK_I2C4_DIV_CON_SHIFT         = 0,
+
+  /* CLKSEL_CON0 / CLKSEL_CON2 */
+  ACLKM_CORE_DIV_CON_MASK        = 0x1f,
+  ACLKM_CORE_DIV_CON_SHIFT       = 8,
+  CLK_CORE_PLL_SEL_MASK          = 3,
+  CLK_CORE_PLL_SEL_SHIFT         = 6,
+  CLK_CORE_PLL_SEL_ALPLL         = 0x0,
+  CLK_CORE_PLL_SEL_ABPLL         = 0x1,
+  CLK_CORE_PLL_SEL_DPLL          = 0x10,
+  CLK_CORE_PLL_SEL_GPLL          = 0x11,
+  CLK_CORE_DIV_MASK              = 0x1f,
+  CLK_CORE_DIV_SHIFT             = 0,
+
+  /* CLKSEL_CON1 / CLKSEL_CON3 */
+  PCLK_DBG_DIV_MASK              = 0x1f,
+  PCLK_DBG_DIV_SHIFT             = 0x8,
+  ATCLK_CORE_DIV_MASK            = 0x1f,
+  ATCLK_CORE_DIV_SHIFT           = 0,
+
+  /* CLKSEL_CON14 */
+  PCLK_PERIHP_DIV_CON_SHIFT      = 12,
+  PCLK_PERIHP_DIV_CON_MASK       = 0x7 << PCLK_PERIHP_DIV_CON_SHIFT,
+  HCLK_PERIHP_DIV_CON_SHIFT      = 8,
+  HCLK_PERIHP_DIV_CON_MASK       = 3 << HCLK_PERIHP_DIV_CON_SHIFT,
+  ACLK_PERIHP_PLL_SEL_SHIFT      = 7,
+  ACLK_PERIHP_PLL_SEL_MASK       = 1 << ACLK_PERIHP_PLL_SEL_SHIFT,
+  ACLK_PERIHP_PLL_SEL_CPLL       = 0,
+  ACLK_PERIHP_PLL_SEL_GPLL       = 1,
+  ACLK_PERIHP_DIV_CON_SHIFT      = 0,
+  ACLK_PERIHP_DIV_CON_MASK       = 0x1f,
+
+  /* CLKSEL_CON21 */
+  ACLK_EMMC_PLL_SEL_SHIFT        = 7,
+  ACLK_EMMC_PLL_SEL_MASK         = 0x1 << ACLK_EMMC_PLL_SEL_SHIFT,
+  ACLK_EMMC_PLL_SEL_GPLL         = 0x1,
+  ACLK_EMMC_DIV_CON_SHIFT        = 0,
+  ACLK_EMMC_DIV_CON_MASK         = 0x1f,
+
+  /* CLKSEL_CON22 */
+  CLK_EMMC_PLL_SHIFT             = 8,
+  CLK_EMMC_PLL_MASK              = 0x7 << CLK_EMMC_PLL_SHIFT,
+  CLK_EMMC_PLL_SEL_GPLL          = 0x1,
+  CLK_EMMC_PLL_SEL_24M           = 0x5,
+  CLK_EMMC_DIV_CON_SHIFT         = 0,
+  CLK_EMMC_DIV_CON_MASK          = 0x7f << CLK_EMMC_DIV_CON_SHIFT,
+
+  /* CLKSEL_CON23 */
+  PCLK_PERILP0_DIV_CON_SHIFT     = 12,
+  PCLK_PERILP0_DIV_CON_MASK      = 0x7 << PCLK_PERILP0_DIV_CON_SHIFT,
+  HCLK_PERILP0_DIV_CON_SHIFT     = 8,
+  HCLK_PERILP0_DIV_CON_MASK      = 3 << HCLK_PERILP0_DIV_CON_SHIFT,
+  ACLK_PERILP0_PLL_SEL_SHIFT     = 7,
+  ACLK_PERILP0_PLL_SEL_MASK      = 1 << ACLK_PERILP0_PLL_SEL_SHIFT,
+  ACLK_PERILP0_PLL_SEL_CPLL      = 0,
+  ACLK_PERILP0_PLL_SEL_GPLL      = 1,
+  ACLK_PERILP0_DIV_CON_SHIFT     = 0,
+  ACLK_PERILP0_DIV_CON_MASK      = 0x1f,
+
+  /* CRU_CLK_SEL24_CON */
+  CRYPTO0_PLL_SEL_SHIFT          = 6,
+  CRYPTO0_PLL_SEL_MASK           = 3 << CRYPTO0_PLL_SEL_SHIFT,
+  CRYPTO_PLL_SEL_CPLL            = 0,
+  CRYPTO_PLL_SEL_GPLL,
+  CRYPTO_PLL_SEL_PPLL            = 0,
+  CRYPTO0_DIV_SHIFT              = 0,
+  CRYPTO0_DIV_MASK               = 0x1f << CRYPTO0_DIV_SHIFT,
+
+  /* CLKSEL_CON25 */
+  PCLK_PERILP1_DIV_CON_SHIFT     = 8,
+  PCLK_PERILP1_DIV_CON_MASK      = 0x7 << PCLK_PERILP1_DIV_CON_SHIFT,
+  HCLK_PERILP1_PLL_SEL_SHIFT     = 7,
+  HCLK_PERILP1_PLL_SEL_MASK      = 1 << HCLK_PERILP1_PLL_SEL_SHIFT,
+  HCLK_PERILP1_PLL_SEL_CPLL      = 0,
+  HCLK_PERILP1_PLL_SEL_GPLL      = 1,
+  HCLK_PERILP1_DIV_CON_SHIFT     = 0,
+  HCLK_PERILP1_DIV_CON_MASK      = 0x1f,
+
+  /* CLKSEL_CON26 */
+  CLK_SARADC_DIV_CON_SHIFT       = 8,
+  CLK_SARADC_DIV_CON_MASK        = GENMASK(15, 8),
+  CLK_SARADC_DIV_CON_WIDTH       = 8,
+  CRYPTO1_PLL_SEL_SHIFT          = 6,
+  CRYPTO1_PLL_SEL_MASK           = 3 << CRYPTO1_PLL_SEL_SHIFT,
+  CRYPTO1_DIV_SHIFT              = 0,
+  CRYPTO1_DIV_MASK               = 0x1f << CRYPTO1_DIV_SHIFT,
+
+  /* CLKSEL_CON27 */
+  CLK_TSADC_SEL_X24M             = 0x0,
+  CLK_TSADC_SEL_SHIFT            = 15,
+  CLK_TSADC_SEL_MASK             = 1 << CLK_TSADC_SEL_SHIFT,
+  CLK_TSADC_DIV_CON_SHIFT        = 0,
+  CLK_TSADC_DIV_CON_MASK         = 0x3ff,
+
+  /* CLKSEL_CON47 & CLKSEL_CON48 */
+  ACLK_VOP_PLL_SEL_SHIFT         = 6,
+  ACLK_VOP_PLL_SEL_MASK          = 0x3 << ACLK_VOP_PLL_SEL_SHIFT,
+  ACLK_VOP_PLL_SEL_CPLL          = 0x1,
+  ACLK_VOP_PLL_SEL_GPLL          = 0x2,
+  ACLK_VOP_DIV_CON_SHIFT         = 0,
+  ACLK_VOP_DIV_CON_MASK          = 0x1f << ACLK_VOP_DIV_CON_SHIFT,
+
+  /* CLKSEL_CON49 & CLKSEL_CON50 */
+  DCLK_VOP_DCLK_SEL_SHIFT        = 11,
+  DCLK_VOP_DCLK_SEL_MASK         = 1 << DCLK_VOP_DCLK_SEL_SHIFT,
+  DCLK_VOP_DCLK_SEL_DIVOUT       = 0,
+  DCLK_VOP_PLL_SEL_SHIFT         = 8,
+  DCLK_VOP_PLL_SEL_MASK          = 3 << DCLK_VOP_PLL_SEL_SHIFT,
+  DCLK_VOP_PLL_SEL_VPLL          = 0,
+  DCLK_VOP_PLL_SEL_CPLL          = 1,
+  DCLK_VOP_DIV_CON_MASK          = 0xff,
+  DCLK_VOP_DIV_CON_SHIFT         = 0,
+
+  /* CLKSEL_CON57 */
+  PCLK_ALIVE_DIV_CON_SHIFT      = 0,
+  PCLK_ALIVE_DIV_CON_MASK       = 0x1f << PCLK_ALIVE_DIV_CON_SHIFT,
+
+  /* CLKSEL_CON58 */
+  CLK_SPI_PLL_SEL_WIDTH         = 1,
+  CLK_SPI_PLL_SEL_MASK          = ((1 < CLK_SPI_PLL_SEL_WIDTH) - 1),
+  CLK_SPI_PLL_SEL_CPLL          = 0,
+  CLK_SPI_PLL_SEL_GPLL          = 1,
+  CLK_SPI_PLL_DIV_CON_WIDTH     = 7,
+  CLK_SPI_PLL_DIV_CON_MASK      = ((1 << CLK_SPI_PLL_DIV_CON_WIDTH) - 1),
+
+  CLK_SPI5_PLL_DIV_CON_SHIFT    = 8,
+  CLK_SPI5_PLL_SEL_SHIFT        = 15,
+
+  /* CLKSEL_CON59 */
+  CLK_SPI1_PLL_SEL_SHIFT        = 15,
+  CLK_SPI1_PLL_DIV_CON_SHIFT    = 8,
+  CLK_SPI0_PLL_SEL_SHIFT        = 7,
+  CLK_SPI0_PLL_DIV_CON_SHIFT    = 0,
+
+  /* CLKSEL_CON60 */
+  CLK_SPI4_PLL_SEL_SHIFT        = 15,
+  CLK_SPI4_PLL_DIV_CON_SHIFT    = 8,
+  CLK_SPI2_PLL_SEL_SHIFT        = 7,
+  CLK_SPI2_PLL_DIV_CON_SHIFT    = 0,
+
+  /* CLKSEL_CON61 */
+  CLK_I2C_PLL_SEL_MASK          = 1,
+  CLK_I2C_PLL_SEL_CPLL          = 0,
+  CLK_I2C_PLL_SEL_GPLL          = 1,
+  CLK_I2C5_PLL_SEL_SHIFT        = 15,
+  CLK_I2C5_DIV_CON_SHIFT        = 8,
+  CLK_I2C1_PLL_SEL_SHIFT        = 7,
+  CLK_I2C1_DIV_CON_SHIFT        = 0,
+
+  /* CLKSEL_CON62 */
+  CLK_I2C6_PLL_SEL_SHIFT        = 15,
+  CLK_I2C6_DIV_CON_SHIFT        = 8,
+  CLK_I2C2_PLL_SEL_SHIFT        = 7,
+  CLK_I2C2_DIV_CON_SHIFT        = 0,
+
+  /* CLKSEL_CON63 */
+  CLK_I2C7_PLL_SEL_SHIFT        = 15,
+  CLK_I2C7_DIV_CON_SHIFT        = 8,
+  CLK_I2C3_PLL_SEL_SHIFT        = 7,
+  CLK_I2C3_DIV_CON_SHIFT        = 0,
+
+  /* CRU_SOFTRST_CON4 */
+  RESETN_DDR0_REQ_SHIFT         = 8,
+  RESETN_DDR0_REQ_MASK          = 1 << RESETN_DDR0_REQ_SHIFT,
+  RESETN_DDRPHY0_REQ_SHIFT      = 9,
+  RESETN_DDRPHY0_REQ_MASK               = 1 << RESETN_DDRPHY0_REQ_SHIFT,
+  RESETN_DDR1_REQ_SHIFT         = 12,
+  RESETN_DDR1_REQ_MASK          = 1 << RESETN_DDR1_REQ_SHIFT,
+  RESETN_DDRPHY1_REQ_SHIFT      = 13,
+  RESETN_DDRPHY1_REQ_MASK               = 1 << RESETN_DDRPHY1_REQ_SHIFT,
+};
+
+#define VCO_MAX_KHZ     (3200 * (MHz / KHz))
+#define VCO_MIN_KHZ     (800 * (MHz / KHz))
+#define OUTPUT_MAX_KHZ  (3200 * (MHz / KHz))
+#define OUTPUT_MIN_KHZ  (16 * (MHz / KHz))
+
+/*
+ *  the div restructions of pll in integer mode, these are defined in
+ *  * CRU_*PLL_CON0 or PMUCRU_*PLL_CON0
+ */
+#define PLL_DIV_MIN     16
+#define PLL_DIV_MAX     3200
+
+#define RK_CLRSETBITS(clr, set)         ((((clr) | (set)) << 16) | (set))
+#define RK_SETBITS(set)                 RK_CLRSETBITS(0, set)
+#define RK_CLRBITS(clr)                 RK_CLRSETBITS(clr, 0)
+
+#define rk_clrsetreg(addr, clr, set) MmioWrite32((UINTN) addr, ((clr) | (set)) << 16 | (set))
+#define rk_clrreg(addr, clr)         MmioWrite32((UINTN) addr, (clr) << 16)
+#define rk_setreg(addr, set)         MmioWrite32((UINTN) addr, (set) << 16 | (set))
+
+/*
+ * How to calculate the PLL(from TRM V0.3 Part 1 Page 63):
+ * Formulas also embedded within the Fractional PLL Verilog model:
+ * If DSMPD = 1 (DSM is disabled, "integer mode")
+ * FOUTVCO = FREF / REFDIV * FBDIV
+ * FOUTPOSTDIV = FOUTVCO / POSTDIV1 / POSTDIV2
+ * Where:
+ * FOUTVCO = Fractional PLL non-divided output frequency
+ * FOUTPOSTDIV = Fractional PLL divided output frequency
+ *               (output of second post divider)
+ * FREF = Fractional PLL input reference frequency, (the OSC_HZ 24MHz input)
+ * REFDIV = Fractional PLL input reference clock divider
+ * FBDIV = Integer value programmed into feedback divide
+ *
+ */
+
+static UINT32
+rkclk_pll_get_rate(
+  IN  UINT32 *pll_con
   )
 {
-  UINT32 Con, PllCon0, PllCon1, PllCon2, Dsmp;
+  UINT32 refdiv, fbdiv, postdiv1, postdiv2;
+  UINT32 con;
 
-  if (pll_id == PPLL_ID) {
-    Con = PmuCruReadl(PMUCRU_PLL_CON(0, 3)) & PLL_MODE_MSK;
-    PllCon0 = PmuCruReadl(PMUCRU_PLL_CON(0, 0));
-    PllCon1 = PmuCruReadl(PMUCRU_PLL_CON(0, 1));
-    PllCon2 = PmuCruReadl(PMUCRU_PLL_CON(0, 2));
-    Dsmp = PLL_GET_DSMPD(PmuCruReadl(PMUCRU_PLL_CON(0, 3)));
-  } else {
-    Con = CruReadl(CRU_PLL_CON(pll_id, 3)) & PLL_MODE_MSK;
-    PllCon0 = CruReadl(CRU_PLL_CON(pll_id, 0));
-    PllCon1 = CruReadl(CRU_PLL_CON(pll_id, 1));
-    PllCon2 = CruReadl(CRU_PLL_CON(pll_id, 2));
-    Dsmp = PLL_GET_DSMPD(CruReadl(CRU_PLL_CON(pll_id, 3)));
-  }
-
-  if (Con == PLL_MODE_SLOW) { /* slow mode */
-    return 24 * MHZ;
-  } else if (Con == PLL_MODE_NORM) { /* normal mode */
-    UINT32 Rate = 0, FracRate64 = 0;
-
-    /* integer mode */
-    Rate = (UINT32)(24) * PLL_GET_FBDIV(PllCon0);
-    Rate = Rate / PLL_GET_REFDIV(PllCon1);
-    if (FRAC_MODE == Dsmp) {
-    /* fractional mode */
-      FracRate64 = (UINT32)(24) * PLL_GET_FRAC(PllCon2);
-      FracRate64 = FracRate64 / PLL_GET_REFDIV(PllCon1);
-      Rate += FracRate64 >> 24;
-    }
-    Rate = Rate / PLL_GET_POSTDIV1(PllCon1);
-    Rate = Rate / PLL_GET_POSTDIV2(PllCon1);
-    return Rate * MHZ;
-  } else { /* deep slow mode */
+  con = MmioRead32((UINTN) &pll_con[3]);
+  switch ((con & PLL_MODE_MASK) >> PLL_MODE_SHIFT) {
+  case PLL_MODE_SLOW:
+    return OSC_HZ;
+  case PLL_MODE_NORM:
+    /* normal mode */
+    con = MmioRead32((UINTN) &pll_con[0]);
+    fbdiv = (con & PLL_FBDIV_MASK) >> PLL_FBDIV_SHIFT;
+    con = MmioRead32((UINTN) &pll_con[1]);
+    postdiv1 = (con & PLL_POSTDIV1_MASK) >> PLL_POSTDIV1_SHIFT;
+    postdiv2 = (con & PLL_POSTDIV2_MASK) >> PLL_POSTDIV2_SHIFT;
+    refdiv = (con & PLL_REFDIV_MASK) >> PLL_REFDIV_SHIFT;
+    return (24 * fbdiv / (refdiv * postdiv1 * postdiv2)) * 1000000;
+  case PLL_MODE_DEEP:
+  default:
     return 32768;
   }
+}
+
+UINT32
+rk3399_pll_get_rate(
+  IN  rk3399_pll_id pll_id
+  )
+{
+  UINT32 *pll_con;
+        
+  switch (pll_id) {
+  case PLL_APLLL:
+    pll_con = &cru->apll_l_con[0];
+    break;
+  case PLL_APLLB:
+    pll_con = &cru->apll_b_con[0];
+    break;
+  case PLL_DPLL:
+    pll_con = &cru->dpll_con[0];
+    break;
+  case PLL_CPLL:
+    pll_con = &cru->cpll_con[0];
+    break;
+  case PLL_GPLL:
+    pll_con = &cru->gpll_con[0];
+    break;
+  case PLL_NPLL:
+    pll_con = &cru->npll_con[0];
+    break;
+  case PLL_VPLL:
+    pll_con = &cru->vpll_con[0];
+    break;
+  default:
+    pll_con = &cru->vpll_con[0];
+    break;
+  }
+
+  return rkclk_pll_get_rate(pll_con);
+}
+
+static VOID
+rkclk_set_pll(
+  IN  UINT32 *pll_con,
+  IN const struct pll_div *div
+  )
+{
+  /* All 8 PLLs have same VCO and output frequency range restrictions. */
+  UINT32 vco_khz = OSC_HZ / 1000 * div->fbdiv / div->refdiv;
+  UINT32 output_khz = vco_khz / div->postdiv1 / div->postdiv2;
+
+  DEBUG((EFI_D_INFO,"PLL at %p: fbdiv=%d, refdiv=%d, postdiv1=%d, "
+         "postdiv2=%d, vco=%u khz, output=%u khz\n",
+         pll_con, div->fbdiv, div->refdiv, div->postdiv1,
+         div->postdiv2, vco_khz, output_khz));
+  ASSERT(vco_khz >= VCO_MIN_KHZ && vco_khz <= VCO_MAX_KHZ &&
+         output_khz >= OUTPUT_MIN_KHZ && output_khz <= OUTPUT_MAX_KHZ &&
+         div->fbdiv >= PLL_DIV_MIN && div->fbdiv <= PLL_DIV_MAX);
+
+  /*
+   * When power on or changing PLL setting,
+   * we must force PLL into slow mode to ensure output stable clock.
+   */
+  rk_clrsetreg(&pll_con[3], PLL_MODE_MASK,
+               PLL_MODE_SLOW << PLL_MODE_SHIFT);
+
+  /* use integer mode */
+  rk_clrsetreg(&pll_con[3], PLL_DSMPD_MASK,
+               PLL_INTEGER_MODE << PLL_DSMPD_SHIFT);
+
+  rk_clrsetreg(&pll_con[0], PLL_FBDIV_MASK,
+               div->fbdiv << PLL_FBDIV_SHIFT);
+  rk_clrsetreg(&pll_con[1],
+               PLL_POSTDIV2_MASK | PLL_POSTDIV1_MASK |
+               PLL_REFDIV_MASK | PLL_REFDIV_SHIFT,
+               (div->postdiv2 << PLL_POSTDIV2_SHIFT) |
+               (div->postdiv1 << PLL_POSTDIV1_SHIFT) |
+               (div->refdiv << PLL_REFDIV_SHIFT));
+
+  /* waiting for pll lock */
+  while (!(MmioRead32((UINTN) &pll_con[2]) & (1 << PLL_LOCK_STATUS_SHIFT)))
+    MicroSecondDelay(1);
+
+  /* pll enter normal mode */
+  rk_clrsetreg(&pll_con[3], PLL_MODE_MASK,
+               PLL_MODE_NORM << PLL_MODE_SHIFT);
+}
+
+void
+rk3399_configure_cpu(
+  IN  apll_frequencies freq,
+  IN  cpu_cluster cluster
+  )
+{
+  UINT32 aclkm_div;
+  UINT32 pclk_dbg_div;
+  UINT32 atclk_div, apll_hz;
+  int con_base, parent;
+  UINT32 *pll_con;
+
+  switch (cluster) {
+  case CPU_CLUSTER_LITTLE:
+    con_base = 0;
+    parent = CLK_CORE_PLL_SEL_ALPLL;
+    pll_con = &cru->apll_l_con[0];
+    break;
+  case CPU_CLUSTER_BIG:
+  default:
+    con_base = 2;
+    parent = CLK_CORE_PLL_SEL_ABPLL;
+    pll_con = &cru->apll_b_con[0];
+    break;
+  }
+
+  apll_hz = apll_cfgs[freq]->freq;
+  rkclk_set_pll(pll_con, apll_cfgs[freq]);
+
+  aclkm_div = apll_hz / ACLKM_CORE_HZ - 1;
+  ASSERT((aclkm_div + 1) * ACLKM_CORE_HZ <= apll_hz &&
+         aclkm_div < 0x1f);
+
+  pclk_dbg_div = apll_hz / PCLK_DBG_HZ - 1;
+  ASSERT((pclk_dbg_div + 1) * PCLK_DBG_HZ <= apll_hz &&
+         pclk_dbg_div < 0x1f);
+
+  atclk_div = apll_hz / ATCLK_CORE_HZ - 1;
+  ASSERT((atclk_div + 1) * ATCLK_CORE_HZ <= apll_hz &&
+         atclk_div < 0x1f);
+
+  rk_clrsetreg(&cru->clksel_con[con_base],
+               ACLKM_CORE_DIV_CON_MASK | CLK_CORE_PLL_SEL_MASK |
+               CLK_CORE_DIV_MASK,
+               aclkm_div << ACLKM_CORE_DIV_CON_SHIFT |
+               parent << CLK_CORE_PLL_SEL_SHIFT |
+               0 << CLK_CORE_DIV_SHIFT);
+
+  rk_clrsetreg(&cru->clksel_con[con_base + 1],
+               PCLK_DBG_DIV_MASK | ATCLK_CORE_DIV_MASK,
+               pclk_dbg_div << PCLK_DBG_DIV_SHIFT |
+               atclk_div << ATCLK_CORE_DIV_SHIFT);
 }

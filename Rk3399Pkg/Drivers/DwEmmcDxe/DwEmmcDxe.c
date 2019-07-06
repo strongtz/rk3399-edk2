@@ -758,8 +758,17 @@ DwEmmcIomux (
   DEBUG ((DW_DBG, "%a(): GPLL PllRate=%d\n", __func__, PllRate));
 
   if (PllRate == 400000000) {
+    /*
+     * Select GPLL for clk_sdmmc_pll_sel.
+     */
     CruWritel((0x7 << ( 8 + 16)) | (0x1 << 8), CRU_CLKSELS_CON(16));
+    /*
+     * 100MHz = clk = clk_src / (clk_sddmmc_div_con + 1), clk_sddmmc_div_con == 3.
+     */
     CruWritel((0x7f << ( 0 + 16)) | (0x3 << 0), CRU_CLKSELS_CON(16));
+    /*
+     * Ungate clk_sdmmc_src_en.
+     */
     CruWritel((0x1 << ( 1 + 16)) | (0 << 1), CRU_CLKGATES_CON(6));
   } else {
     DEBUG ((DEBUG_ERROR, "%a(): GPLL != 400MHz, set sdmmc clock error!!!\n", __func__));

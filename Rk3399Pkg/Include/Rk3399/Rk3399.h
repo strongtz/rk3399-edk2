@@ -41,7 +41,11 @@
 #define RK3399_I2C7_BASE                  0xFF160000
 #define RK3399_I2C8_BASE                  0xFF3E0000
 
-#define RK3399_PWM_BASE                  0xFF420000
+#define RK3399_PWM_BASE                   0xFF420000
+
+#define RK3399_VOP1_LIT                   0xFF8F0000
+#define RK3399_VOP0_BIG                   0xFF900000
+#define RK3399_HDMI                       0xFF940000
 
 #define GrfReadl(offset)		MmioRead32(RK3399_GRF_BASE + offset)
 #define GrfWritel(v, offset)		do { MmioWrite32(RK3399_GRF_BASE + offset, v); } while (0)

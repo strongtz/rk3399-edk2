@@ -16,19 +16,6 @@
 #include <Library/CRULib.h>
 #include <Rk3399/Rk3399.h>
 
-/* core clocks */
-#define PLL_APLLL       1
-#define PLL_APLLB       2
-#define PLL_DPLL        3
-#define PLL_CPLL        4
-#define PLL_GPLL        5
-#define PLL_NPLL        6
-#define PLL_VPLL        7
-#define ARMCLKL         8
-#define ARMCLKB         9
-
-#define MHz             1000000
-#define KHz             1000
 #define OSC_HZ          (24*MHz)
 #define APLL_HZ         (600*MHz)
 #define GPLL_HZ         (800 * MHz)
@@ -109,6 +96,7 @@ struct rk3399_clk_info {
   BOOLEAN is_cru;
 };
 
+#define DIV_ROUND_UP(n, d) (((n) + (d) - 1) / (d))
 #define GENMASK(h, l) \
   (((~0UL) << (l)) & (~0UL >> ((sizeof(UINTN) * 8) - 1 - (h))))
 
@@ -130,6 +118,7 @@ struct pll_div {
       .fbdiv = (UINT32)((UINT64)hz * _refdiv * _postdiv1 * _postdiv2 / OSC_HZ), \
       .postdiv1 = _postdiv1, .postdiv2 = _postdiv2, .freq = hz};
 
+static const struct pll_div ppll_init_cfg = PLL_DIVISORS(PPLL_HZ, 2, 2, 1);
 static const struct pll_div gpll_init_cfg = PLL_DIVISORS(GPLL_HZ, 1, 3, 1);
 static const struct pll_div npll_init_cfg = PLL_DIVISORS(NPLL_HZ, 1, 3, 1);
 static const struct pll_div apll_1700_cfg = PLL_DIVISORS(1700*MHz, 1, 1, 1);
@@ -512,7 +501,7 @@ rkclk_set_pll(
                PLL_MODE_NORM << PLL_MODE_SHIFT);
 }
 
-void
+VOID
 rk3399_configure_cpu(
   IN  apll_frequencies freq,
   IN  cpu_cluster cluster
@@ -564,4 +553,177 @@ rk3399_configure_cpu(
                PCLK_DBG_DIV_MASK | ATCLK_CORE_DIV_MASK,
                pclk_dbg_div << PCLK_DBG_DIV_SHIFT |
                atclk_div << ATCLK_CORE_DIV_SHIFT);
+}
+
+VOID
+rk3399_pmu_clock_init(
+  VOID
+  )
+{
+  UINT32 pclk_div;
+
+  /*  configure pmu pll(ppll) */
+  rkclk_set_pll(&pmucru->ppll_con[0], &ppll_init_cfg);
+
+  /*  configure pmu pclk */
+  pclk_div = PPLL_HZ / PMU_PCLK_HZ - 1;
+  rk_clrsetreg(&pmucru->pmucru_clksel[0],
+               PMU_PCLK_DIV_CON_MASK,
+               pclk_div << PMU_PCLK_DIV_CON_SHIFT);
+}
+
+VOID
+rk3399_clock_init(
+  VOID
+  )
+{
+  UINT32 aclk_div;
+  UINT32 hclk_div;
+  UINT32 pclk_div;
+
+  DEBUG((EFI_D_INFO, "Boot APLLL = %u\n", rkclk_pll_get_rate(&cru->apll_l_con[0])));
+  DEBUG((EFI_D_INFO, "Boot APLLB = %u\n", rkclk_pll_get_rate(&cru->apll_b_con[0])));
+  DEBUG((EFI_D_ERROR, "Boot DPLLB = %u\n", rkclk_pll_get_rate(&cru->dpll_con[0])));
+
+  rk3399_configure_cpu(APLL_816_MHZ, CPU_CLUSTER_LITTLE);
+
+  /*
+   * some cru registers changed by bootrom, we'd better reset them to
+   * reset/default values described in TRM to avoid confusion in kernel.
+   * Please consider these three lines as a fix of bootrom bug.
+   */
+  if (rkclk_pll_get_rate(&cru->npll_con[0]) != NPLL_HZ)
+    rkclk_set_pll(&cru->npll_con[0], &npll_init_cfg);
+
+  if (rkclk_pll_get_rate(&cru->gpll_con[0]) == GPLL_HZ)
+    return;
+
+  rk_clrsetreg(&cru->clksel_con[12], 0xffff, 0x4101);
+  rk_clrsetreg(&cru->clksel_con[19], 0xffff, 0x033f);
+  rk_clrsetreg(&cru->clksel_con[56], 0x0003, 0x0003);
+
+  /* configure perihp aclk, hclk, pclk */
+  aclk_div = DIV_ROUND_UP(GPLL_HZ, PERIHP_ACLK_HZ) - 1;
+
+  hclk_div = PERIHP_ACLK_HZ / PERIHP_HCLK_HZ - 1;
+  ASSERT((hclk_div + 1) * PERIHP_HCLK_HZ <=
+         PERIHP_ACLK_HZ && (hclk_div <= 0x3));
+
+  pclk_div = PERIHP_ACLK_HZ / PERIHP_PCLK_HZ - 1;
+  ASSERT((pclk_div + 1) * PERIHP_PCLK_HZ <=
+         PERIHP_ACLK_HZ && (pclk_div <= 0x7));
+
+  rk_clrsetreg(&cru->clksel_con[14],
+               PCLK_PERIHP_DIV_CON_MASK | HCLK_PERIHP_DIV_CON_MASK |
+               ACLK_PERIHP_PLL_SEL_MASK | ACLK_PERIHP_DIV_CON_MASK,
+               pclk_div << PCLK_PERIHP_DIV_CON_SHIFT |
+               hclk_div << HCLK_PERIHP_DIV_CON_SHIFT |
+               ACLK_PERIHP_PLL_SEL_GPLL << ACLK_PERIHP_PLL_SEL_SHIFT |
+               aclk_div << ACLK_PERIHP_DIV_CON_SHIFT);
+
+  /* configure perilp0 aclk, hclk, pclk */
+  aclk_div = DIV_ROUND_UP(GPLL_HZ, PERILP0_ACLK_HZ) - 1;
+
+  hclk_div = PERILP0_ACLK_HZ / PERILP0_HCLK_HZ - 1;
+  ASSERT((hclk_div + 1) * PERILP0_HCLK_HZ <=
+         PERILP0_ACLK_HZ && (hclk_div <= 0x3));
+
+  pclk_div = PERILP0_ACLK_HZ / PERILP0_PCLK_HZ - 1;
+  ASSERT((pclk_div + 1) * PERILP0_PCLK_HZ <=
+         PERILP0_ACLK_HZ && (pclk_div <= 0x7));
+
+  rk_clrsetreg(&cru->clksel_con[23],
+               PCLK_PERILP0_DIV_CON_MASK | HCLK_PERILP0_DIV_CON_MASK |
+               ACLK_PERILP0_PLL_SEL_MASK | ACLK_PERILP0_DIV_CON_MASK,
+               pclk_div << PCLK_PERILP0_DIV_CON_SHIFT |
+               hclk_div << HCLK_PERILP0_DIV_CON_SHIFT |
+               ACLK_PERILP0_PLL_SEL_GPLL << ACLK_PERILP0_PLL_SEL_SHIFT |
+               aclk_div << ACLK_PERILP0_DIV_CON_SHIFT);
+
+  /* perilp1 hclk select gpll as source */
+  hclk_div = DIV_ROUND_UP(GPLL_HZ, PERILP1_HCLK_HZ) - 1;
+  ASSERT((hclk_div + 1) * PERILP1_HCLK_HZ <=
+         GPLL_HZ && (hclk_div <= 0x1f));
+
+  pclk_div = PERILP1_HCLK_HZ / PERILP1_PCLK_HZ - 1;
+  ASSERT((pclk_div + 1) * PERILP1_PCLK_HZ <=
+         PERILP1_HCLK_HZ && (pclk_div <= 0x7));
+
+  rk_clrsetreg(&cru->clksel_con[25],
+               PCLK_PERILP1_DIV_CON_MASK | HCLK_PERILP1_DIV_CON_MASK |
+               HCLK_PERILP1_PLL_SEL_MASK,
+               pclk_div << PCLK_PERILP1_DIV_CON_SHIFT |
+               hclk_div << HCLK_PERILP1_DIV_CON_SHIFT |
+               HCLK_PERILP1_PLL_SEL_GPLL << HCLK_PERILP1_PLL_SEL_SHIFT);
+
+  rk_clrsetreg(&cru->clksel_con[21],
+               ACLK_EMMC_PLL_SEL_MASK | ACLK_EMMC_DIV_CON_MASK,
+               ACLK_EMMC_PLL_SEL_GPLL << ACLK_EMMC_PLL_SEL_SHIFT |
+               (4 - 1) << ACLK_EMMC_DIV_CON_SHIFT);
+  rk_clrsetreg(&cru->clksel_con[22], 0x3f << 0, 7 << 0);
+
+  rkclk_set_pll(&cru->gpll_con[0], &gpll_init_cfg);
+}
+
+UINT32
+rk3399_clk_get_rate(
+  UINTN id
+  )
+{
+  switch (id) {
+  case PLL_APLLL:
+  case PLL_APLLB:
+  case PLL_DPLL:
+  case PLL_CPLL:
+  case PLL_GPLL:
+  case PLL_NPLL:
+  case PLL_VPLL:
+    return rk3399_pll_get_rate(id);
+  /* case HCLK_SDMMC: */
+  /* case SCLK_SDMMC: */
+  /* case SCLK_EMMC: */
+  /*   return rk3399_mmc_get_clk(id); */
+  /* case SCLK_I2C1: */
+  /* case SCLK_I2C2: */
+  /* case SCLK_I2C3: */
+  /* case SCLK_I2C5: */
+  /* case SCLK_I2C6: */
+  /* case SCLK_I2C7: */
+  /*   return rk3399_i2c_get_clk(id); */
+  /* case SCLK_SPI0...SCLK_SPI5: */
+  /*   return rk3399_spi_get_clk(id); */
+  case SCLK_UART0:
+  case SCLK_UART1:
+  case SCLK_UART2:
+  case SCLK_UART3:
+    return 24000000;
+  case PCLK_HDMI_CTRL:
+    return 0;
+  case DCLK_VOP0:
+  case DCLK_VOP1:
+    return 0;
+  case PCLK_EFUSE1024NS:
+    return 0;
+  /* case SCLK_SARADC: */
+  /*   return rk3399_saradc_get_clk(); */
+  /* case SCLK_TSADC: */
+  /*   return rk3399_tsadc_get_clk(); */
+  /* case SCLK_CRYPTO0: */
+  /* case SCLK_CRYPTO1: */
+  /*   return rk3399_crypto_get_clk(id); */
+  /* case ACLK_PERIHP: */
+  /* case HCLK_PERIHP: */
+  /* case PCLK_PERIHP: */
+  /* case ACLK_PERILP0: */
+  /* case HCLK_PERILP0: */
+  /* case PCLK_PERILP0: */
+  /* case HCLK_PERILP1: */
+  /* case PCLK_PERILP1: */
+  /*   return rk3399_peri_get_clk(id); */
+  /* case PCLK_ALIVE: */
+  /* case PCLK_WDT: */
+  /*   return rk3399_alive_get_clk(); */
+  }
+  ASSERT_EFI_ERROR (EFI_NOT_FOUND);
+  return 0;
 }

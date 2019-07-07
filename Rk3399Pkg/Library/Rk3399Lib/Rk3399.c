@@ -61,6 +61,8 @@ ArmPlatformInitialize (
   IN  UINTN                     MpId
   )
 {
+  rk3399_pmu_clock_init();
+  rk3399_clock_init();
   /*
    * Little cluster at 1.3GHz (unstable at 1.4).
    * Big cluster at 1.7GHz (unstable at 1.8).

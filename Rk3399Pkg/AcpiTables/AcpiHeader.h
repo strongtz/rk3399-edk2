@@ -18,12 +18,12 @@
 
 #include <IndustryStandard/Acpi.h>
 
-#define ACPI_OEM_ID_ARRAY        {'R','C','K','C','H','P'}
+#define ACPI_OEM_ID_ARRAY        {'R','K','C','P',' ',' '}
 #define ACPI_OEM_REVISION        0
 #define ACPI_CREATOR_ID          SIGNATURE_32('E','D','K','2')
 #define ACPI_CREATOR_REVISION    0
 
-#define ACPI_OEM_TABLE_ID        SIGNATURE_64('R','K','3','3','9','9','0','0')
+#define ACPI_OEM_TABLE_ID        SIGNATURE_64('R','K','3','3','9','9',' ',' ')
 
 
 /**

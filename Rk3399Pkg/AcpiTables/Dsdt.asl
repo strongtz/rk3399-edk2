@@ -15,7 +15,7 @@
 
 **/
 
-DefinitionBlock ("DSDT.aml", "DSDT", 2, "RCKCHP", "RK3399  ", 3)
+DefinitionBlock ("DSDT.aml", "DSDT", 2, "RKCP  ", "RK3399  ", 3)
 {
     Scope (_SB)
     {
@@ -48,6 +48,62 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "RCKCHP", "RK3399  ", 3)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x102)  // _UID: Unique ID
+        }
+
+        Device (XHC0)
+        {
+            Name (_HID, "PNP0D15")      // _HID: Hardware ID
+            Name (_UID, 0x00)           // _UID: Unique ID
+            Name (_CCA, 0x00)           // Not coherent!
+
+            Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    0xfe800000,         // Address Base (MMIO)
+                    0x00008000,         // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  137
+                }
+            })
+        }
+
+        Device (XHC1)
+        {
+            Name (_HID, "PNP0D15")      // _HID: Hardware ID
+            Name (_UID, 0x01)           // _UID: Unique ID
+            Name (_CCA, 0x00)           // Not coherent!
+
+            Name (_CRS, ResourceTemplate ()  // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    0xfe900000,         // Address Base (MMIO)
+                    0x00008000,         // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  142
+                }
+            })
+        }
+
+        Device (COM1)
+        {
+            Name (_HID, "HISI0031")                             // _HID: Hardware ID
+            Name (_CID, "8250dw")                               // _CID: Compatible ID
+            Name (_ADR, FixedPcdGet64(PcdSerialRegisterBase))   // _ADR: Address
+            Name (_CRS, ResourceTemplate ()                     // _CRS: Current Resource Settings
+            {
+                Memory32Fixed (ReadWrite,
+                    FixedPcdGet64(PcdSerialRegisterBase),       // Address Base
+                    0x00000100,                                 // Address Length
+                    )
+                Interrupt (ResourceConsumer, Level, ActiveHigh, Exclusive, ,, )
+                {
+                  132
+                }
+            })
         }
     }
 }

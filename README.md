@@ -1,6 +1,6 @@
 # Rockchip RK3399 UEFI Firmware
 
-Now with ACPI...
+Now with ACPI...and (almost working) USB!
 
 ## Notes
 

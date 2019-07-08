@@ -355,8 +355,7 @@
   #
   # Architectural Protocols
   #
-  #ArmPkg/Drivers/CpuDxe/CpuDxe.inf
-  Platform/Rockchip/Rk3399Pkg/Drivers/CpuDxe/CpuDxe.inf
+  ArmPkg/Drivers/CpuDxe/CpuDxe.inf
   MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
   MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
   MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf

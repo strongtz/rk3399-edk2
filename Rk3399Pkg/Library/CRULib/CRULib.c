@@ -17,7 +17,6 @@
 #include <Rk3399/Rk3399.h>
 
 #define OSC_HZ          (24*MHz)
-#define APLL_HZ         (600*MHz)
 #define GPLL_HZ         (800 * MHz)
 #define CPLL_HZ         (384*MHz)
 #define NPLL_HZ         (600 * MHz)
@@ -121,6 +120,7 @@ struct pll_div {
 static const struct pll_div ppll_init_cfg = PLL_DIVISORS(PPLL_HZ, 2, 2, 1);
 static const struct pll_div gpll_init_cfg = PLL_DIVISORS(GPLL_HZ, 1, 3, 1);
 static const struct pll_div npll_init_cfg = PLL_DIVISORS(NPLL_HZ, 1, 3, 1);
+static const struct pll_div cpll_init_cfg = PLL_DIVISORS(CPLL_HZ, 1, 3, 1);
 static const struct pll_div apll_1700_cfg = PLL_DIVISORS(1700*MHz, 1, 1, 1);
 static const struct pll_div apll_1600_cfg = PLL_DIVISORS(1600*MHz, 3, 1, 1);
 static const struct pll_div apll_1300_cfg = PLL_DIVISORS(1300*MHz, 1, 1, 1);
@@ -581,26 +581,30 @@ rk3399_clock_init(
   UINT32 hclk_div;
   UINT32 pclk_div;
 
-  DEBUG((EFI_D_INFO, "Boot APLLL = %u\n", rkclk_pll_get_rate(&cru->apll_l_con[0])));
-  DEBUG((EFI_D_INFO, "Boot APLLB = %u\n", rkclk_pll_get_rate(&cru->apll_b_con[0])));
-  DEBUG((EFI_D_ERROR, "Boot DPLLB = %u\n", rkclk_pll_get_rate(&cru->dpll_con[0])));
+  DEBUG((EFI_D_INFO, "Boot PLLs:\n"));
+  DEBUG((EFI_D_INFO, "APLLL = %u\n", rkclk_pll_get_rate(&cru->apll_l_con[0])));
+  DEBUG((EFI_D_INFO, "APLLB = %u\n", rkclk_pll_get_rate(&cru->apll_b_con[0])));
+  DEBUG((EFI_D_ERROR, "CPLL = %u\n", rkclk_pll_get_rate(&cru->cpll_con[0])));
+  DEBUG((EFI_D_ERROR, "DPLL = %u\n", rkclk_pll_get_rate(&cru->dpll_con[0])));
+  DEBUG((EFI_D_ERROR, "GPLL = %u\n", rkclk_pll_get_rate(&cru->gpll_con[0])));
+  DEBUG((EFI_D_ERROR, "NPLL = %u\n", rkclk_pll_get_rate(&cru->npll_con[0])));
+  DEBUG((EFI_D_ERROR, "VPLL = %u\n", rkclk_pll_get_rate(&cru->cpll_con[0])));
 
   rk3399_configure_cpu(APLL_816_MHZ, CPU_CLUSTER_LITTLE);
+  rk3399_configure_cpu(APLL_816_MHZ, CPU_CLUSTER_BIG);
 
   /*
    * some cru registers changed by bootrom, we'd better reset them to
    * reset/default values described in TRM to avoid confusion in kernel.
    * Please consider these three lines as a fix of bootrom bug.
    */
-  if (rkclk_pll_get_rate(&cru->npll_con[0]) != NPLL_HZ)
-    rkclk_set_pll(&cru->npll_con[0], &npll_init_cfg);
-
-  if (rkclk_pll_get_rate(&cru->gpll_con[0]) == GPLL_HZ)
-    return;
-
   rk_clrsetreg(&cru->clksel_con[12], 0xffff, 0x4101);
   rk_clrsetreg(&cru->clksel_con[19], 0xffff, 0x033f);
   rk_clrsetreg(&cru->clksel_con[56], 0x0003, 0x0003);
+
+  rkclk_set_pll(&cru->gpll_con[0], &gpll_init_cfg);
+  rkclk_set_pll(&cru->npll_con[0], &npll_init_cfg);
+  rkclk_set_pll(&cru->cpll_con[0], &cpll_init_cfg);
 
   /* configure perihp aclk, hclk, pclk */
   aclk_div = DIV_ROUND_UP(GPLL_HZ, PERIHP_ACLK_HZ) - 1;
@@ -662,7 +666,14 @@ rk3399_clock_init(
                (4 - 1) << ACLK_EMMC_DIV_CON_SHIFT);
   rk_clrsetreg(&cru->clksel_con[22], 0x3f << 0, 7 << 0);
 
-  rkclk_set_pll(&cru->gpll_con[0], &gpll_init_cfg);
+  DEBUG((EFI_D_INFO, "After clock init:\n"));
+  DEBUG((EFI_D_INFO, "APLLL = %u\n", rkclk_pll_get_rate(&cru->apll_l_con[0])));
+  DEBUG((EFI_D_INFO, "APLLB = %u\n", rkclk_pll_get_rate(&cru->apll_b_con[0])));
+  DEBUG((EFI_D_ERROR, "CPLL = %u\n", rkclk_pll_get_rate(&cru->cpll_con[0])));
+  DEBUG((EFI_D_ERROR, "DPLL = %u\n", rkclk_pll_get_rate(&cru->dpll_con[0])));
+  DEBUG((EFI_D_ERROR, "GPLL = %u\n", rkclk_pll_get_rate(&cru->gpll_con[0])));
+  DEBUG((EFI_D_ERROR, "NPLL = %u\n", rkclk_pll_get_rate(&cru->npll_con[0])));
+  DEBUG((EFI_D_ERROR, "VPLL = %u\n", rkclk_pll_get_rate(&cru->cpll_con[0])));
 }
 
 UINT32

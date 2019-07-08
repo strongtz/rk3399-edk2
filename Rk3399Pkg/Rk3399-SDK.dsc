@@ -106,10 +106,7 @@
   UefiRuntimeServicesTableLib|MdePkg/Library/UefiRuntimeServicesTableLib/UefiRuntimeServicesTableLib.inf
 
   # USB Requirements
-  #UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
-  #DmaLib|ArmPkg/Library/ArmDmaLib/ArmDmaLib.inf
-
-  #UncachedMemoryAllocationLib|ArmPkg/Library/UncachedMemoryAllocationLib/UncachedMemoryAllocationLib.inf
+  NonDiscoverableDeviceRegistrationLib|MdeModulePkg/Library/NonDiscoverableDeviceRegistrationLib/NonDiscoverableDeviceRegistrationLib.inf
 
   # Network Libraries
   UefiScsiLib|MdePkg/Library/UefiScsiLib/UefiScsiLib.inf
@@ -325,12 +322,6 @@
   gDwEmmcDxeTokenSpaceGuid.PcdDwEmmcDxeBaseAddress|0xFE320000
   gDwEmmcDxeTokenSpaceGuid.PcdDwEmmcDxeClockFrequencyInHz|100000000
 
-  #
-  #
-  # Fastboot
-  #
-  gEmbeddedTokenSpaceGuid.PcdAndroidFastbootUsbVendorId|0x18d1
-  gEmbeddedTokenSpaceGuid.PcdAndroidFastbootUsbProductId|0xd00d
 
 ################################################################################
 #
@@ -400,26 +391,17 @@
   #
   # USB Host Support
   #
+  MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
+  MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+  MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
+  Platform/Rockchip/Rk3399Pkg/Drivers/UsbHcdInitDxe/UsbHcd.inf
 
   #
   # USB Mass Storage Support
   #
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
-
-  #
-  # USB Peripheral Support
-  #
-  EmbeddedPkg/Drivers/AndroidFastbootTransportUsbDxe/FastbootTransportUsbDxe.inf
-
-  #
-  # Fastboot
-  #
-  EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf {
-    <LibraryClasses>
-      BdsLib|Platform/ARM/Library/BdsLib/BdsLib.inf
-  }
-
 
   #
   # UEFI Network Stack

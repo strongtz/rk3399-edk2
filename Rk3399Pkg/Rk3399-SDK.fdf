@@ -136,21 +136,16 @@ READ_LOCK_STATUS   = TRUE
   # USB Host Support
   #
   INF MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
+  INF MdeModulePkg/Bus/Pci/UhciDxe/UhciDxe.inf
+  INF MdeModulePkg/Bus/Pci/EhciDxe/EhciDxe.inf
+  INF MdeModulePkg/Bus/Pci/XhciDxe/XhciDxe.inf
+  INF MdeModulePkg/Bus/Pci/NonDiscoverablePciDeviceDxe/NonDiscoverablePciDeviceDxe.inf
+  INF Platform/Rockchip/Rk3399Pkg/Drivers/UsbHcdInitDxe/UsbHcd.inf
 
   #
   # USB Mass Storage Support
   #
   INF MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
-
-  #
-  # USB Peripheral Support
-  #
-  INF EmbeddedPkg/Drivers/AndroidFastbootTransportUsbDxe/FastbootTransportUsbDxe.inf
-
-  #
-  # Fastboot
-  #
-  INF EmbeddedPkg/Application/AndroidFastboot/AndroidFastbootApp.inf
 
   #
   # UEFI Network Stack

@@ -47,6 +47,12 @@
 #define RK3399_VOP0_BIG                   0xFF900000
 #define RK3399_HDMI                       0xFF940000
 
+#define RK3399_OTG0_DWC3_XHCI_BASE        0xfe800000
+#define RK3399_OTG0_DWC3_BASE             0xfe80c100
+#define RK3399_OTG1_DWC3_XHCI_BASE        0xfe900000
+#define RK3399_OTG1_DWC3_BASE             0xfe90c100
+#define RK3399_OTG_REGS_SIZE              0x100000
+
 #define GrfReadl(offset)		MmioRead32(RK3399_GRF_BASE + offset)
 #define GrfWritel(v, offset)		do { MmioWrite32(RK3399_GRF_BASE + offset, v); } while (0)
 

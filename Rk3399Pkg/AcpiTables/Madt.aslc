@@ -119,25 +119,25 @@ STATIC EFI_ACPI_6_2_MULTIPLE_APIC_DESCRIPTION_TABLE Madt = {
     //
     // Cluster 0.
     //
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-0 Thread-0
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-0
       0, 0, GET_MPID(0x0, 0x0), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */
       0xfff10000, /* GICH */
       25, 0 /* GicRBase */, 0 /* Efficiency */),
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1 Thread-1
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1
       0, 1, GET_MPID(0x0, 0x1), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */
       0xfff10000, /* GICH */
       25, 0 /* GicRBase */, 0 /* Efficiency */),
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1 Thread-0
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-2
       0, 2, GET_MPID(0x0, 0x2), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */
       0xfff10000, /* GICH */
       25, 0 /* GicRBase */, 0 /* Efficiency */),
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1 Thread-1
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-3
       0, 3, GET_MPID(0x0, 0x3), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */
@@ -145,13 +145,13 @@ STATIC EFI_ACPI_6_2_MULTIPLE_APIC_DESCRIPTION_TABLE Madt = {
       25, 0 /* GicRBase */, 0 /* Efficiency */),
 
     //Cluster 1
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-0 Thread-0
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-0
       0, 16, GET_MPID(0x1, 0x0), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */
       0xfff10000, /* GICH */
       25, 0 /* GicRBase */, 0 /* Efficiency */),
-    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1 Thread-1
+    EFI_ACPI_6_2_GICC_STRUCTURE_INIT( // Core-1
       0, 17, GET_MPID(0x1, 0x1), EFI_ACPI_6_2_GIC_ENABLED, 23,
       0xfff00000, /* GICC */
       0xfff20000, /* GICV */

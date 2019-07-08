@@ -32,12 +32,22 @@ DefinitionBlock ("DSDT.aml", "DSDT", 2, "RCKCHP", "RK3399  ", 3)
         Device (CPU2)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
-            Name (_UID, 0x100)  // _UID: Unique ID
+            Name (_UID, 0x002)  // _UID: Unique ID
         }
         Device (CPU3)
         {
             Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
+            Name (_UID, 0x003)  // _UID: Unique ID
+        }
+        Device (CPU4)
+        {
+            Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
             Name (_UID, 0x101)  // _UID: Unique ID
+        }
+        Device (CPU5)
+        {
+            Name (_HID, "ACPI0007" /* Processor Device */)  // _HID: Hardware ID
+            Name (_UID, 0x102)  // _UID: Unique ID
         }
     }
 }
